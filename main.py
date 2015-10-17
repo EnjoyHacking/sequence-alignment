@@ -8,7 +8,7 @@
 # Licensed under the LGPL
 #
 
-from PI import *
+from src import *
 import sys, getopt
 
 def main():
@@ -89,8 +89,6 @@ def main():
     else:
         print "Found %d unique sequences in '%s'" % (len(sequences), file)
 
-
-    sys.exit(0)
 
     #
     # Create distance matrix (LocalAlignment, PairwiseIdentity, Entropic)

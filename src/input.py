@@ -13,6 +13,7 @@ Licensed under the LGPL
 from pcapy  import *
 from socket import *
 from sets   import *
+import binascii
 
 __all__ = ["Input", "Pcap", "ASCII" , "HEX"]
 
@@ -178,17 +179,13 @@ class HEX(Input):
             l = len(self.set)
             self.set.add(line)
 
-            if len(self.set) == l:
-                continue
-
             # Digitize sequence
 	    print line
             digitalSeq = []
 	    for ch in line.split():
 		digitalSeq.append(int(ch, 16))
-		print ".........."
-		print "%s, %d," % ch, int(ch, 16)
 	    print "\n"
 	    print "line size : %d" % len(line)
 	    print "digital size : %d" % len(digitalSeq)
             self.sequences.append((lineno, digitalSeq))
+	print len(self.sequences)
