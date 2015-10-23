@@ -180,12 +180,14 @@ class HEX(Input):
             self.set.add(line)
 
             # Digitize sequence
-	    print line
+	    #print line
             digitalSeq = []
 	    for ch in line.split():
+	    	#print ch,
+		#print ": %d," % int(ch, 16),
 		digitalSeq.append(int(ch, 16))
-	    print "\n"
-	    print "line size : %d" % len(line)
-	    print "digital size : %d" % len(digitalSeq)
+	    #print "\n"
+	    #print "line size : %d" % len(line)
+	    #print "digital size : %d" % len(digitalSeq)
             self.sequences.append((lineno, digitalSeq))
 	print len(self.sequences)

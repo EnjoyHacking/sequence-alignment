@@ -1,32 +1,28 @@
 #!/usr/bin/python -u
 
-#
-# Protocol Informatics Prototype
-# Written by Marshall Beddoe <mbeddoe@baselineresearch.net>
-# Copyright (c) 2004 Baseline Research
-#
-# Licensed under the LGPL
-#
 
 from seqalign import *
 import sys, getopt
+import multiprocessing
 
-def main():
 
-    print "Protocol Informatics Prototype (v0.01 beta)"
-    print "Written by Marshall Beddoe <mbeddoe@baselineresearch.net>"
-    print "Copyright (c) 2004 Baseline Research\n"
+
+
+def main(argv, no, totalSignatures):
 
     # Defaults
     format = None
     weight = 1.0
     graph = False
+    print "main %d ..." % no
 
     #
     # Parse command line options and do sanity checking on arguments
     #
     try:
-        (opts, args) = getopt.getopt(sys.argv[1:], "pahgw:")
+        (opts, args) = getopt.getopt(argv[1:], "pahgw:")
+	#print "args: %d" % args
+	#print "argv: %s" % argv
     except:
         usage()
 
@@ -51,7 +47,13 @@ def main():
         print "FATAL: Weight must be between 0 and 1"
         sys.exit(-1)
 
-    file = sys.argv[len(sys.argv) - 1]
+    clusterFile = "cluster_" + str(no) + ".txt"
+    base = argv[len(argv) - 1]
+    if base.rindex("/") == len(base) - 1:
+    	file = argv[len(argv) - 1] + clusterFile
+    else:
+    	file = argv[len(argv) - 1] + "/" + clusterFile
+
 
     try:
         file
@@ -135,18 +137,21 @@ def main():
     #
     # Display each cluster of aligned sequences
     #
-    signatures = [] # Store the extracted substrings from the result of alignment
+    localSignatures = [] # Store the extracted substrings from the result of alignment
     i = 1
     for seqs in alist:
         print "Output of cluster %d" % i
         align = output.Ansi(seqs)
 	print "No.%d: " % i,
 	print align.getSignatures()
-	signatures.append(align.getSignatures())
+	localSignatures.extend(align.getSignatures())
         i += 1
         print ""
     #
     # Save the extracted signatures to file
+    print localSignatures
+    totalSignatures.extend(localSignatures)
+    """
     print signatures
     path = file[0 : file.rindex("/") + 1]
     no = file[file.rindex("_") + 1 : file.rindex(".txt")]
@@ -157,6 +162,7 @@ def main():
 		fsig.write(i)
 		fsig.write("\n")
     fsig.close()
+    """
 
 
 def usage():
@@ -169,5 +175,52 @@ def usage():
     print "       -w\tdifference weight for clustering"
     sys.exit(-1)
 
+
+# Filter by the constrain of substring len 
+def refineByLen(e):
+	return len(e) > 1 and len(e) <= 20
+
+
+def removeNonDistinct(l):
+	siglist = [] 
+	for i in xrange(len(l)):
+		for j in xrange(len(l)):
+			if i == j:
+				continue	
+			else:
+				if l[j].find(l[i]) == True:
+					break	
+				else:
+					siglist.append(l[i])
+	return siglist
+
+
+
+
 if __name__ == "__main__":
-    main()
+
+    totalSignatures = multiprocessing.Manager().list() 
+    pool = multiprocessing.Pool(processes = 3)
+    for i in xrange(3) :
+    	pool.apply(main, (sys.argv, i, totalSignatures))
+    pool.close()
+    pool.join()
+    print "Total Signatures:"
+    print totalSignatures
+    print "Total Signatures (By len):"
+    print filter(refineByLen, totalSignatures)
+    candiate_substrings =  filter(refineByLen, totalSignatures)
+    sigset = set(removeNonDistinct(candiate_substrings))
+    print "sigset:"
+    print sigset
+
+
+    """
+    print "Set Signatures:"
+    print sigSet
+    print "list : %d " % len(totalSignatures)
+    print "set : %d " % len(sigSet)
+    """
+    print "All sub-processes done!"
+    sys.exit(0)
+

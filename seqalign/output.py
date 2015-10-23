@@ -10,6 +10,7 @@ Licensed under the LGPL
 """
 
 from curses.ascii import *
+import math
 
 class Output:
 
@@ -17,6 +18,11 @@ class Output:
 
         self.sequences = sequences
         self.consensus = []
+	self.signatures = []  # raw 
+	self.signatureshex = []  # encoded with hex
+	#self.real = [] 
+	#self.real_gapped = [] 
+	self.histogram = {}
         self._go()
 
     def _go(self):
@@ -46,8 +52,9 @@ class Ansi(Output):
 
         start = 0
         end = 18
-
+	# datatype 
         dtConsensus = []
+	# mutation 
         mtConsensus = []
 
         for i in range(rounds):
@@ -140,22 +147,30 @@ class Ansi(Output):
 
             items = histogram.items()
             items.sort()
+	    self.histogram = histogram
 
-            m = 1
+            #m = 1
+            m = math.ceil(len(self.sequences) / 2)
             v = 257
-            for j in items:
-                if j[1] > m:
-                    m = j[1]
-                    v = j[0]
+	    if len(histogram) < 5:
+		    for j in items:
+			if j[1] > m:
+			    m = j[1]
+			    v = j[0]
 
             self.consensus.append(v)
 
             real = []
+	    real_gapped = []
 
             for i in range(len(self.consensus)):
                 if self.consensus[i] == 256:
+                    real_gapped.append((self.consensus[i], dtConsensus[i], mtConsensus[i]))
                     continue
                 real.append((self.consensus[i], dtConsensus[i], mtConsensus[i]))
+                real_gapped.append((self.consensus[i], dtConsensus[i], mtConsensus[i]))
+            #self.real = real
+            #self.real_gapped = real_gapped
 
         #
         # Display consensus data
@@ -226,6 +241,82 @@ class Ansi(Output):
                 print "%03d" % (rate * 100),
             print ""
 
+        #
+        # Display consensus data with gapped
+        #
+        totalLen = len(real_gapped)
+        rounds = totalLen / 18
+        remainder = totalLen % 18
+
+        start = 0
+        end = 18
+
+        print "\nGapped Consensus:"
+
+        for i in range(rounds):
+            print "CONS",
+            for byte,type,rate in real_gapped[start:end]:
+                if byte == 256:
+                   print self.gap % "___",
+                elif byte == 257:
+                    print self.default % "???",
+                elif isspace(byte):
+                    print self.space % "   ",
+                elif isprint(byte):
+                    print self.printable % "x%02x" % byte,
+                elif byte == 0:
+                    print self.zero % "x00",
+                else:
+                    print self.default % "x%02x" % byte,
+            print ""
+
+            print "DT  ",
+            for byte,type,rate in real_gapped[start:end]:
+                print type,
+            print ""
+
+            print "MT  ",
+            for byte,type,rate in real_gapped[start:end]:
+                print "%03d" % (rate * 100),
+            print "\n"
+
+            start += 18
+            end += 18
+
+        if remainder:
+            print "CONS",
+            for byte,type,rate in real_gapped[start:start + remainder]:
+                if byte == 256:
+                   print self.gap % "___",
+                elif byte == 257:
+                    print self.default % "???",
+                elif isspace(byte):
+                    print self.space % "   ",
+                elif isprint(byte):
+                    print self.printable % "x%02x" % byte,
+                elif byte == 0:
+                    print self.zero % "x00",
+                else:
+                    print self.default % "x%02x" % byte,
+            print ""
+
+            print "DT  ",
+            for byte,type,rate in real_gapped[start:end]:
+                print type,
+            print ""
+
+            print "MT  ",
+            for byte,type,rate in real_gapped[start:end]:
+                print "%03d" % (rate * 100),
+            print ""
+
+	self._extractSignatures()
+	# Calculate datatype consensus
+	# G: Gap (256)
+	# S: Space (\x20)
+	# A: Ascii 
+	# Z: Zero  (\x00)
+	# B: Binary
     def _dtConsensus(self, data):
         histogram = {}
 
@@ -268,6 +359,7 @@ class Ansi(Output):
 
         return v * 3
 
+	# Calculate mutation rate
     def _mutationRate(self, data):
 
         histogram = {}
@@ -287,3 +379,57 @@ class Ansi(Output):
             rate = len(items) * 1.0 / len(data) * 1.0
 
         return rate
+
+    def _extractSignaturesHex(self):
+    	flag = 1
+	substring = "" 
+    	for i in range(len(self.consensus)):
+		if self.consensus[i] == 256:
+			if flag == 1 :
+				if "" != substring:
+					self.signatureshex.append(substring)
+					substring = ""
+				flag = 0
+		elif self.consensus[i] == ord('\r'):
+			strcr = "x%02x" % self.consensus[i] 
+			substring += strcr 
+			flag = 1
+		elif self.consensus[i] == ord('\n'):
+			strlf = "x%02x" % self.consensus[i] 
+			substring += strlf 
+			flag = 1
+		elif self.consensus[i] == ord(' '):
+			strspace = "x%02x" % self.consensus[i] 
+			substring += strspace 
+			flag = 1
+		elif self.consensus[i] >=0 and self.consensus[i] < 256:
+			substring += str(chr(self.consensus[i])) 
+			flag = 1
+		else:
+			strhex = "x%02x" % self.consensus[i] 
+			substring += strhex 
+			flag = 1
+			
+	#print self.signatureshex
+
+    def _extractSignatures(self):
+    	flag = 1
+	substring = "" 
+    	for i in range(len(self.consensus)):
+		print self.consensus[i],
+		print ", ",
+		if self.consensus[i] == 256 or self.consensus[i] == 257:
+			if flag == 1 :
+				if "" != substring:
+					self.signatures.append(substring)
+					substring = ""
+				flag = 0
+		else:
+			substring += str(chr(self.consensus[i])) 
+			flag = 1
+	print self.signatures
+
+    def getSignatures(self):
+    	return self.signatures
+
+		
